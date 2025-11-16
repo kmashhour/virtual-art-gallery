@@ -65,6 +65,16 @@ Create a clear sitemap showing all public and admin pages, define how users and 
 - [ ] Navigation flow between pages is clearly defined.  
 - [ ] Sitemap aligns with planned React routes.
 
+##
+
+🧠 Important tip
+
+Your React URLs (like /login, /dashboard) should be handled by React Router — not the backend.
+Your API URLs (like /api/login, /api/products) are handled by the backend.
+
+Many devs prefix all backend routes with /api so the split is clear.
+
+##
 
 ---
 
