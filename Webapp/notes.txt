@@ -1,0 +1,20 @@
+time 2:16:35
+
+add syntax to JobPage
+
+Get syntax from:
+https://github.com/bradtraversy/react-crash-2024/blob/main/_theme_files/job.html
+
+
+time 2:22:45
+
+add syntax to for a Form to AddJobPage
+
+Get syntax from: https://github.com/bradtraversy/react-crash-2024/blob/main/_theme_files/add-job.html
+
+
+time 2:46:45
+
+install react toastify package
+
+npm install react-toastify
