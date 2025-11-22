@@ -1,10 +1,11 @@
 import { useParams, Link } from 'react-router-dom';
+import { useState } from 'react';
 
 const ArtPage = () => {
   const { id } = useParams();
+  const [isFavorite, setIsFavorite] = useState(false);
 
   // Tijdelijk: dummy data op basis van het id
-  // Later ga ik hier echt via API/data laden.
   const art = {
     id,
     title: `Titel van kunstwerk #${id}`,
@@ -14,6 +15,11 @@ const ArtPage = () => {
     description:
       'Hier komt straks de echte beschrijving van het kunstwerk uit de database/API.',
     image: `https://via.placeholder.com/600x400?text=Artwork+${id}`,
+  };
+
+  const handleToggleFavorite = () => {
+    setIsFavorite((prev) => !prev);
+    // TODO: later koppelen aan backend / localStorage
   };
 
   return (
@@ -29,6 +35,13 @@ const ArtPage = () => {
           {art.year} · {art.technique}
         </p>
 
+        <button
+          onClick={handleToggleFavorite}
+          className="mb-4 px-4 py-2 border rounded-md text-sm"
+        >
+          {isFavorite ? '★ Verwijder uit favorieten' : '☆ Voeg toe aan favorieten'}
+        </button>
+
         <img
           src={art.image}
           alt={art.title}
@@ -37,7 +50,7 @@ const ArtPage = () => {
 
         <p className="text-base text-gray-800 mb-6">{art.description}</p>
 
-        {/* Hier komen later: favorietenknop, comments, etc. */}
+        {/* Hier komen later: comments, meer details, etc. */}
       </div>
     </section>
   );
