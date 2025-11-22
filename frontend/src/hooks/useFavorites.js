@@ -1,29 +1,31 @@
 import { useState, useEffect } from "react";
 
+const STORAGE_KEY = "artgallery_favorites";
+
 export default function useFavorites() {
   const [favorites, setFavorites] = useState([]);
 
-  // Bij eerste render: lees uit localStorage
+  // Eenmalig: laden uit localStorage
   useEffect(() => {
     try {
-      const stored = localStorage.getItem("favorites");
-      if (stored) {
-        const parsed = JSON.parse(stored);
-        if (Array.isArray(parsed)) {
-          setFavorites(parsed);
-        }
+      const stored = window.localStorage.getItem(STORAGE_KEY);
+      if (!stored) return;
+
+      const parsed = JSON.parse(stored);
+      if (Array.isArray(parsed)) {
+        setFavorites(parsed);
       }
-    } catch (e) {
-      console.error("Fout bij lezen van favorites uit localStorage", e);
+    } catch (err) {
+      console.error("Kon favorites niet laden", err);
     }
   }, []);
 
-  // Elke keer als favorites verandert: schrijf naar localStorage
+  // Schrijven naar localStorage bij iedere wijziging
   useEffect(() => {
     try {
-      localStorage.setItem("favorites", JSON.stringify(favorites));
-    } catch (e) {
-      console.error("Fout bij schrijven van favorites naar localStorage", e);
+      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(favorites));
+    } catch (err) {
+      console.error("Kon favorites niet opslaan", err);
     }
   }, [favorites]);
 

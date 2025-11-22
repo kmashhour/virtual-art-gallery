@@ -16,9 +16,6 @@ const ArtPage = () => {
     image: "/placeholder.png", // tijdelijke lokale placeholder
   };
 
-  const handleToggleFavorite = () => {
-    toggleFavorite(art.id);
-  };
 
   return (
     <section className="p-8 max-w-3xl mx-auto">
@@ -34,7 +31,7 @@ const ArtPage = () => {
         </p>
 
         <button
-          onClick={handleToggleFavorite}
+          onClick={() => toggleFavorite(art.id)}
           className="mb-4 px-4 py-2 border rounded-md text-sm"
         >
           {isFavorite(art.id)
