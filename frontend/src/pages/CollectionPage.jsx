@@ -1,11 +1,10 @@
 import { useParams, Link } from "react-router-dom";
 import { useEffect, useState } from "react";
-import ArtListings from "../components/ArtListings";
 
 const CollectionPage = () => {
   const { id } = useParams();
-  const [artworks, setArtworks] = useState([]);
   const [collectionName, setCollectionName] = useState("");
+  const [artworkIds, setArtworkIds] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
@@ -16,41 +15,20 @@ const CollectionPage = () => {
         setError(null);
 
         const res = await fetch(`/api/collections/${id}/artworks`);
-
         if (!res.ok) {
           throw new Error(`Kon artworks voor collectie ${id} niet ophalen`);
         }
 
         const data = await res.json();
-        // Verwacht: { collectionName, artworks: [...] }
-        // Of alleen een array. We zijn een beetje defensief:
 
-        if (Array.isArray(data)) {
-          // data is direct de lijst van artworks
-          setArtworks(
-            data.map((item) => ({
-              id: item.met_object_id || item.id,
-              title: item.title,
-              artist: item.artist || item.artistDisplayName,
-              image: item.image || item.primaryImageSmall,
-            }))
-          );
+        if (data.collectionName) {
+          setCollectionName(data.collectionName);
         } else {
-          // data: { collectionName, artworks: [...] }
-          if (data.collectionName) {
-            setCollectionName(data.collectionName);
-          }
-          if (Array.isArray(data.artworks)) {
-            setArtworks(
-              data.artworks.map((item) => ({
-                id: item.met_object_id || item.id,
-                title: item.title,
-                artist: item.artist || item.artistDisplayName,
-                image: item.image || item.primaryImageSmall,
-              }))
-            );
-          }
+          setCollectionName(`Collectie #${id}`);
         }
+
+        const metObjectIds = data.metObjectIds || [];
+        setArtworkIds(metObjectIds);
       } catch (err) {
         console.error(err);
         setError(
@@ -78,9 +56,29 @@ const CollectionPage = () => {
       {loading && <p>Artworks worden geladen...</p>}
       {error && <p className="text-red-600">{error}</p>}
 
-      {!loading && !error && <ArtListings artworks={artworks} />}
+      {!loading && !error && (
+        <>
+          {artworkIds.length === 0 ? (
+            <p>Deze collectie bevat nog geen kunstwerken.</p>
+          ) : (
+            <ul className="space-y-2 mt-4">
+              {artworkIds.map((metId) => (
+                <li key={metId}>
+                  <Link
+                    to={`/art/${metId}`}
+                    className="text-blue-600 underline text-sm"
+                  >
+                    Kunstwerk #{metId}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          )}
+        </>
+      )}
     </section>
   );
 };
 
 export default CollectionPage;
+
