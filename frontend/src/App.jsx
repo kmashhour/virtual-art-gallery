@@ -13,6 +13,7 @@ import AddArt from './pages/AddArt';
 import EditArt from './pages/EditArt';
 import FavoritesPage from "./pages/FavoritesPage";
 import ArtPage from './pages/ArtPage';
+import AdminPage from './pages/AdminPage';
 
 const router = createBrowserRouter(
   createRoutesFromElements(
@@ -21,6 +22,7 @@ const router = createBrowserRouter(
       <Route path="/collections" element={<CollectionsPage />} />
       <Route path="/collections/:id" element={<CollectionPage />} />
       <Route path="/art/:id" element={<ArtPage />} />
+      <Route path="/admin" element={<AdminPage />} />
       <Route path="/art/add" element={<AddArt />} />
       <Route path="/art/:id/edit" element={<EditArt />} />
       <Route path="/favorites" element={<FavoritesPage />} />
