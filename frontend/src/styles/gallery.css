@@ -1,0 +1,600 @@
+/* --------------
+   Base styles
+   -------------- */
+
+   *,
+   *::before,
+   *::after {
+     box-sizing: border-box;
+   }
+   
+   :root {
+     --color-bg: #f5f5f5;
+     --color-surface: #ffffff;
+     --color-border: #e0e0e0;
+     --color-text: #222222;
+     --color-text-muted: #666666;
+     --color-primary: #2f4f90;
+     --color-primary-soft: #e4e9f5;
+     --color-accent: #e0245e;
+     --radius-card: 12px;
+     --shadow-card: 0 8px 20px rgba(0, 0, 0, 0.04);
+     --font-heading: "Georgia", "Times New Roman", serif;
+     --font-body: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+       sans-serif;
+   }
+   
+   html,
+   body {
+     margin: 0;
+     padding: 0;
+     font-family: var(--font-body);
+     color: var(--color-text);
+     background-color: var(--color-bg);
+   }
+   
+   img {
+     max-width: 100%;
+     display: block;
+   }
+   
+   a {
+     color: inherit;
+     text-decoration: none;
+   }
+   
+   button {
+     font-family: inherit;
+   }
+   
+   /* --------------
+      Layout
+      -------------- */
+   
+   .site-header {
+     position: sticky;
+     top: 0;
+     z-index: 10;
+     display: flex;
+     align-items: center;
+     justify-content: space-between;
+     padding: 1rem 3rem;
+     background-color: var(--color-surface);
+     border-bottom: 1px solid var(--color-border);
+   }
+   
+   .site-header__logo {
+     font-family: var(--font-heading);
+     font-size: 1.4rem;
+     letter-spacing: 0.08em;
+     text-transform: uppercase;
+   }
+   
+   .site-nav {
+     display: flex;
+     gap: 1.5rem;
+   }
+   
+   .site-nav__link {
+     font-size: 0.95rem;
+     letter-spacing: 0.05em;
+     text-transform: uppercase;
+     color: var(--color-text-muted);
+     padding-bottom: 0.2rem;
+     border-bottom: 2px solid transparent;
+   }
+   
+   .site-nav__link:hover {
+     color: var(--color-text);
+     border-bottom-color: var(--color-primary);
+   }
+   
+   .site-main {
+     padding: 2rem 3rem 4rem;
+     max-width: 1200px;
+     margin: 0 auto;
+   }
+   
+   .page {
+     margin-bottom: 4rem;
+   }
+   
+   .page-header {
+     display: flex;
+     justify-content: space-between;
+     align-items: flex-start;
+     gap: 2rem;
+     margin-bottom: 2rem;
+   }
+   
+   .page-header__title {
+     font-family: var(--font-heading);
+     font-size: 2.2rem;
+     margin: 0 0 0.3rem;
+   }
+   
+   .page-header__subtitle {
+     margin: 0;
+     color: var(--color-text-muted);
+     max-width: 32rem;
+   }
+   
+   .page-header--with-back .page-header__left {
+     display: flex;
+     flex-direction: column;
+     gap: 0.4rem;
+   }
+   
+   .back-link {
+     font-size: 0.9rem;
+     color: var(--color-primary);
+   }
+   
+   /* --------------
+      Collections grid
+      -------------- */
+   
+   .collections-grid {
+     display: flex;
+     flex-wrap: wrap;
+     gap: 1.8rem;
+   }
+   
+   .collection-card {
+     flex: 1 1 calc(50% - 1.8rem);
+     background-color: var(--color-surface);
+     border-radius: var(--radius-card);
+     box-shadow: var(--shadow-card);
+     overflow: hidden;
+     display: flex;
+     flex-direction: column;
+     border: 1px solid var(--color-border);
+     min-width: 260px;
+   }
+   
+   .collection-card__image-wrapper {
+     height: 220px;
+     overflow: hidden;
+   }
+   
+   .collection-card__image {
+     width: 100%;
+     height: 100%;
+     object-fit: cover;
+   }
+   
+   .collection-card__body {
+     padding: 1.1rem 1.3rem 1.2rem;
+     display: flex;
+     flex-direction: column;
+     gap: 0.6rem;
+   }
+   
+   .collection-card__title {
+     font-family: var(--font-heading);
+     font-size: 1.4rem;
+     margin: 0;
+   }
+   
+   .collection-card__description {
+     margin: 0;
+     color: var(--color-text-muted);
+     font-size: 0.95rem;
+   }
+   
+   .collection-card__meta {
+     display: flex;
+     justify-content: space-between;
+     font-size: 0.85rem;
+     color: var(--color-text-muted);
+   }
+   
+   .collection-card__category {
+     text-transform: uppercase;
+     letter-spacing: 0.08em;
+   }
+   
+   .collection-card__link {
+     align-self: flex-start;
+     margin-top: 0.5rem;
+   }
+   
+   /* --------------
+      Search / filters
+      -------------- */
+   
+   .page-header__right {
+     display: flex;
+     flex-direction: column;
+     gap: 0.8rem;
+     min-width: 260px;
+   }
+   
+   .search-group {
+     display: flex;
+     flex-direction: column;
+     gap: 0.2rem;
+   }
+   
+   .search-group__label {
+     font-size: 0.85rem;
+     text-transform: uppercase;
+     letter-spacing: 0.08em;
+     color: var(--color-text-muted);
+   }
+   
+   .search-group__input {
+     padding: 0.6rem 0.8rem;
+     border-radius: 999px;
+     border: 1px solid var(--color-border);
+     background-color: #fafafa;
+   }
+   
+   /* --------------
+      Artworks grid
+      -------------- */
+   
+   .artworks-grid {
+     display: flex;
+     flex-wrap: wrap;
+     gap: 1.6rem;
+   }
+   
+   .artwork-card {
+     flex: 1 1 calc(33.333% - 1.6rem);
+     background-color: var(--color-surface);
+     border-radius: var(--radius-card);
+     box-shadow: var(--shadow-card);
+     display: flex;
+     flex-direction: column;
+     border: 1px solid var(--color-border);
+     min-width: 240px;
+   }
+   
+   .artwork-card__image-wrapper {
+     height: 200px;
+     overflow: hidden;
+   }
+   
+   .artwork-card__image {
+     width: 100%;
+     height: 100%;
+     object-fit: cover;
+   }
+   
+   .artwork-card__body {
+     padding: 1rem 1.1rem 1.1rem;
+     display: flex;
+     flex-direction: column;
+     gap: 0.25rem;
+   }
+   
+   .artwork-card__title {
+     font-family: var(--font-heading);
+     font-size: 1.1rem;
+     margin: 0;
+   }
+   
+   .artwork-card__artist {
+     margin: 0;
+     color: var(--color-text-muted);
+   }
+   
+   .artwork-card__year {
+     margin: 0;
+     font-size: 0.9rem;
+     color: var(--color-text-muted);
+   }
+   
+   .artwork-card__actions {
+     margin-top: 0.7rem;
+     display: flex;
+     justify-content: space-between;
+     gap: 0.6rem;
+   }
+   
+   /* --------------
+      Buttons
+      -------------- */
+   
+   .button {
+     border-radius: 999px;
+     border: none;
+     padding: 0.5rem 1rem;
+     font-size: 0.9rem;
+     cursor: pointer;
+     display: inline-flex;
+     align-items: center;
+     gap: 0.4rem;
+     text-transform: uppercase;
+     letter-spacing: 0.08em;
+   }
+   
+   .button--primary {
+     background-color: var(--color-primary);
+     color: #ffffff;
+   }
+   
+   .button--primary:hover {
+     opacity: 0.9;
+   }
+   
+   .button--ghost {
+     background-color: transparent;
+     color: var(--color-primary);
+     border: 1px solid var(--color-primary-soft);
+   }
+   
+   .button--icon {
+     background-color: var(--color-primary-soft);
+     color: var(--color-accent);
+     border: 1px solid var(--color-primary-soft);
+   }
+   
+   .button--small {
+     padding: 0.3rem 0.7rem;
+     font-size: 0.8rem;
+   }
+   
+   .button__icon-heart {
+     font-size: 1rem;
+   }
+   
+   /* --------------
+      Artwork detail layout
+      -------------- */
+   
+   .artwork-detail-layout {
+     display: flex;
+     gap: 2rem;
+     align-items: flex-start;
+     margin-bottom: 2.5rem;
+   }
+   
+   .artwork-detail-layout__image {
+     flex: 3;
+   }
+   
+   .artwork-detail-layout__info {
+     flex: 2;
+   }
+   
+   .artwork-detail__image {
+     border-radius: var(--radius-card);
+     border: 1px solid var(--color-border);
+     box-shadow: var(--shadow-card);
+   }
+   
+   /* --------------
+      Artwork meta & description
+      -------------- */
+   
+   .artwork-meta {
+     margin: 0 0 1.5rem;
+   }
+   
+   .artwork-meta__row {
+     display: flex;
+     gap: 1.5rem;
+     padding: 0.2rem 0;
+   }
+   
+   .artwork-meta__label {
+     width: 90px;
+     font-size: 0.9rem;
+     color: var(--color-text-muted);
+   }
+   
+   .artwork-meta__value {
+     flex: 1;
+     font-size: 0.95rem;
+   }
+   
+   .artwork-description__title {
+     margin: 0 0 0.4rem;
+     font-family: var(--font-heading);
+     font-size: 1.2rem;
+   }
+   
+   .artwork-description__text {
+     margin: 0;
+     color: var(--color-text-muted);
+   }
+   
+   /* --------------
+      Comments
+      -------------- */
+   
+   .comments-section {
+     padding: 1.5rem;
+     border-radius: var(--radius-card);
+     background-color: var(--color-surface);
+     border: 1px solid var(--color-border);
+     box-shadow: var(--shadow-card);
+   }
+   
+   .comments-section__title {
+     margin: 0 0 1rem;
+     font-family: var(--font-heading);
+     font-size: 1.4rem;
+   }
+   
+   .comments-list {
+     list-style: none;
+     padding: 0;
+     margin: 0 0 1.5rem;
+     display: flex;
+     flex-direction: column;
+     gap: 0.8rem;
+   }
+   
+   .comment-card {
+     border-radius: 8px;
+     border: 1px solid var(--color-border);
+     padding: 0.7rem 0.9rem;
+     background-color: #fafafa;
+   }
+   
+   .comment-card__header {
+     display: flex;
+     justify-content: space-between;
+     font-size: 0.8rem;
+     margin-bottom: 0.3rem;
+     color: var(--color-text-muted);
+   }
+   
+   .comment-card__text {
+     margin: 0;
+     font-size: 0.95rem;
+   }
+   
+   .comment-form__label {
+     display: block;
+     font-size: 0.85rem;
+     margin-bottom: 0.3rem;
+     text-transform: uppercase;
+     letter-spacing: 0.08em;
+     color: var(--color-text-muted);
+   }
+   
+   .comment-form__textarea {
+     width: 100%;
+     min-height: 80px;
+     padding: 0.7rem;
+     border-radius: 8px;
+     border: 1px solid var(--color-border);
+     resize: vertical;
+     margin-bottom: 0.7rem;
+   }
+   
+   /* --------------
+      Admin table
+      -------------- */
+   
+   .admin-toolbar {
+     margin-bottom: 1rem;
+   }
+   
+   .admin-table-wrapper {
+     overflow-x: auto;
+   }
+   
+   .admin-table {
+     width: 100%;
+     border-collapse: collapse;
+     background-color: var(--color-surface);
+     border-radius: var(--radius-card);
+     overflow: hidden;
+     box-shadow: var(--shadow-card);
+     border: 1px solid var(--color-border);
+   }
+   
+   .admin-table th,
+   .admin-table td {
+     padding: 0.7rem 0.9rem;
+     border-bottom: 1px solid var(--color-border);
+     font-size: 0.9rem;
+   }
+   
+   .admin-table th {
+     text-align: left;
+     background-color: #f2f3f7;
+     text-transform: uppercase;
+     letter-spacing: 0.06em;
+     font-size: 0.8rem;
+     color: var(--color-text-muted);
+   }
+   
+   .admin-table__actions {
+     display: flex;
+     gap: 0.5rem;
+   }
+   
+   .badge {
+     display: inline-flex;
+     align-items: center;
+     padding: 0.1rem 0.5rem;
+     border-radius: 999px;
+     font-size: 0.75rem;
+     text-transform: uppercase;
+     letter-spacing: 0.08em;
+   }
+   
+   .badge--published {
+     background-color: #d4f3d4;
+     color: #237023;
+   }
+   
+   .badge--draft {
+     background-color: #fce3d4;
+     color: #a8541e;
+   }
+   
+   /* --------------
+      Footer
+      -------------- */
+   
+   .site-footer {
+     border-top: 1px solid var(--color-border);
+     padding: 1rem 3rem;
+     text-align: center;
+     background-color: var(--color-surface);
+   }
+   
+   .site-footer__text {
+     margin: 0;
+     font-size: 0.85rem;
+     color: var(--color-text-muted);
+   }
+   
+   /* --------------
+      Responsive (basic)
+      -------------- */
+   
+   @media (max-width: 960px) {
+     .page-header {
+       flex-direction: column;
+     }
+   
+     .collections-grid {
+       flex-direction: column;
+     }
+   
+     .collection-card {
+       flex: 1 1 100%;
+     }
+   
+     .artwork-card {
+       flex: 1 1 calc(50% - 1.6rem);
+     }
+   
+     .artwork-detail-layout {
+       flex-direction: column;
+     }
+   
+     .site-main {
+       padding: 1.5rem 1.5rem 3rem;
+     }
+   }
+   
+   @media (max-width: 640px) {
+     .site-header {
+       flex-direction: column;
+       align-items: flex-start;
+       gap: 0.5rem;
+       padding: 0.8rem 1.2rem;
+     }
+   
+     .site-main {
+       padding: 1rem 1.2rem 2rem;
+     }
+   
+     .artwork-card {
+       flex: 1 1 100%;
+     }
+   
+     .page-header__right {
+       width: 100%;
+     }
+   }
+   
