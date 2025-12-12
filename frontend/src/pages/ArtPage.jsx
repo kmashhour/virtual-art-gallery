@@ -2,6 +2,17 @@ import { useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import useFavorites from "../hooks/useFavorites";
 
+const formatNlDateTime = (value) => {
+  if (!value) return "";
+  // SQLite geeft "YYYY-MM-DD HH:MM:SS"
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleString("nl-NL", {
+    dateStyle: "short",
+    timeStyle: "short",
+  });
+};
+
 const ArtPage = () => {
   const { id } = useParams(); // MET object ID als string
   const { isFavorite, toggleFavorite } = useFavorites();
@@ -10,10 +21,13 @@ const ArtPage = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
-  // simpele lokale comments (nog geen backend)
+  // Comments-state
   const [comments, setComments] = useState([]);
+  const [commentsLoading, setCommentsLoading] = useState(false);
+  const [commentsError, setCommentsError] = useState(null);
   const [commentText, setCommentText] = useState("");
 
+  // Kunstwerk ophalen bij The Met
   useEffect(() => {
     const fetchArtwork = async () => {
       try {
@@ -25,7 +39,7 @@ const ArtPage = () => {
         );
 
         if (!res.ok) {
-          throw new Error("Kon kunstwerk niet ophalen van The Met API");
+          throw new Error("Kon kunstwerk niet ophalen van Met API");
         }
 
         const data = await res.json();
@@ -33,7 +47,7 @@ const ArtPage = () => {
       } catch (err) {
         console.error(err);
         setError(
-          err.message || "Er ging iets mis bij het ophalen van dit kunstwerk"
+          err.message || "Er ging iets mis bij ophalen van dit kunstwerk"
         );
       } finally {
         setLoading(false);
@@ -43,24 +57,77 @@ const ArtPage = () => {
     fetchArtwork();
   }, [id]);
 
+  // Comments ophalen uit eigen backend
+  useEffect(() => {
+    const fetchComments = async () => {
+      try {
+        setCommentsLoading(true);
+        setCommentsError(null);
+
+        const res = await fetch(`/api/artworks/${id}/comments`);
+        if (!res.ok) {
+          throw new Error("Kon opmerkingen niet ophalen");
+        }
+
+        const data = await res.json();
+        setComments(
+          data.map((c) => ({
+            id: c.id,
+            text: c.comment_text,
+            dateTime: formatNlDateTime(c.created_at),
+          }))
+        );
+      } catch (err) {
+        console.error(err);
+        setCommentsError(
+          err.message || "Er ging iets mis bij het ophalen van opmerkingen"
+        );
+      } finally {
+        setCommentsLoading(false);
+      }
+    };
+
+    fetchComments();
+  }, [id]);
+
   const handleToggleFavorite = () => {
     toggleFavorite(id);
   };
 
-  const handleSubmitComment = (e) => {
+  const handleSubmitComment = async (e) => {
     e.preventDefault();
     const text = commentText.trim();
     if (!text) return;
 
-    const newComment = {
-      id: Date.now(),
-      author: "Anonieme bezoeker",
-      date: new Date().toISOString().slice(0, 10),
-      text,
-    };
+    try {
+      const res = await fetch(`/api/artworks/${id}/comments`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text }),
+      });
 
-    setComments((prev) => [newComment, ...prev]);
-    setCommentText("");
+      if (!res.ok) {
+        throw new Error("Kon opmerking niet opslaan");
+      }
+
+      const saved = await res.json();
+
+      const newComment = {
+        id: saved.id,
+        text: saved.comment_text,
+        dateTime: formatNlDateTime(saved.created_at),
+      };
+
+      //zichtbaar maken bovenaan de lijst
+      setComments((prev) => [newComment, ...prev]);
+      setCommentText("");
+    } catch (err) {
+      console.error(err);
+      alert(
+        err.message ||
+          "Er ging iets mis bij het opslaan van de opmerking. Probeer later opnieuw."
+      );
+    }
   };
 
   if (loading) {
@@ -135,7 +202,7 @@ const ArtPage = () => {
           </div>
         </header>
 
-        {/* Hoofd-layout: afbeelding + info */}
+        {/* Hoofd layout. afbeelding + info */}
         <div className="artwork-detail-layout">
           <div className="artwork-detail-layout__image">
             {image ? (
@@ -174,7 +241,10 @@ const ArtPage = () => {
               <p className="artwork-description__text">{description}</p>
 
               {objectUrl && (
-                <p className="artwork-description__text" style={{ marginTop: "0.8rem" }}>
+                <p
+                  className="artwork-description__text"
+                  style={{ marginTop: "0.8rem" }}
+                >
                   Bekijk dit kunstwerk op de website van The Met:&nbsp;
                   <a
                     href={objectUrl}
@@ -194,19 +264,26 @@ const ArtPage = () => {
         <section className="comments-section">
           <h2 className="comments-section__title">Opmerkingen</h2>
 
-          {comments.length === 0 ? (
+          {commentsLoading && <p>Opmerkingen worden geladen...</p>}
+          {commentsError && (
+            <p className="text-red-600">{commentsError}</p>
+          )}
+
+          {!commentsLoading && !commentsError && comments.length === 0 && (
             <p>Er zijn nog geen opmerkingen bij dit kunstwerk.</p>
-          ) : (
+          )}
+
+          {!commentsLoading && !commentsError && comments.length > 0 && (
             <ul className="comments-list">
               {comments.map((comment) => (
                 <li key={comment.id} className="comments-list__item">
                   <article className="comment-card">
                     <header className="comment-card__header">
                       <span className="comment-card__author">
-                        {comment.author}
+                        Bezoeker 1
                       </span>
                       <span className="comment-card__date">
-                        {comment.date}
+                        {comment.dateTime}
                       </span>
                     </header>
                     <p className="comment-card__text">{comment.text}</p>

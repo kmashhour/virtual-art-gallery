@@ -151,6 +151,62 @@ app.delete("/api/favorites/:metObjectId", (req, res) => {
     res.status(500).json({ error: "Kon favoriet niet verwijderen" });
   }
 });
+
+// COMMENTS (user_id = 1)
+// GET /api/artworks/:id/comments
+app.get("/api/artworks/:id/comments", (req, res) => {
+  try {
+    const metObjectId = req.params.id;
+    console.log("GET /api/artworks/" + metObjectId + "/comments");
+
+    const rows = db
+      .prepare(
+        `SELECT id, user_id, met_object_id, comment_text, created_at
+         FROM comments
+         WHERE user_id = 1 AND met_object_id = ?
+         ORDER BY created_at DESC`
+      )
+      .all(String(metObjectId));
+
+    res.json(rows);
+  } catch (err) {
+    console.error("Fout bij ophalen comments:", err.message, err);
+    res.status(500).json({ error: "Kon comments niet ophalen" });
+  }
+});
+
+// POST /api/artworks/:id/comments
+app.post("/api/artworks/:id/comments", (req, res) => {
+  try {
+    const metObjectId = req.params.id;
+    const { text } = req.body;
+    console.log("POST /api/artworks/" + metObjectId + "/comments", req.body);
+
+    if (!text || !text.trim()) {
+      return res.status(400).json({ error: "Comment-tekst is verplicht" });
+    }
+
+    const stmt = db.prepare(
+      `INSERT INTO comments (user_id, met_object_id, comment_text)
+       VALUES (1, ?, ?)`
+    );
+    const result = stmt.run(String(metObjectId), text.trim());
+
+    const inserted = db
+      .prepare(
+        `SELECT id, user_id, met_object_id, comment_text, created_at
+         FROM comments
+         WHERE id = ?`
+      )
+      .get(result.lastInsertRowid);
+
+    res.status(201).json(inserted);
+  } catch (err) {
+    console.error("Fout bij toevoegen comment:", err.message, err);
+    res.status(500).json({ error: "Kon comment niet toevoegen" });
+  }
+});
+
 const PORT = 5000;
 app.listen(PORT, () => {
   console.log(`Backend API luistert op http://localhost:${PORT}`);

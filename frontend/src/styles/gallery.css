@@ -313,7 +313,7 @@
    }
    
    .button--primary {
-     background-color: var(--color-primary);
+     background-color: var(--color-primary) !important;
      color: #ffffff;
    }
    
@@ -468,6 +468,10 @@
      resize: vertical;
      margin-bottom: 0.7rem;
    }
+
+   .comment-form__submit {
+    margin-top: 0.5rem;
+  }
    
    /* --------------
       Admin table
