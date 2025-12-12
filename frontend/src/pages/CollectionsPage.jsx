@@ -61,18 +61,15 @@ const CollectionsPage = () => {
                 className="collection-card"
               >
                 <div className="collection-card__image-wrapper">
-                  {collection.cover_image_url ? (
-                    <img
-                      src={
-                        collection.cover_image_url ||
-                        "https://www.bcinformatica.nl/a6bg8/cypresses.png"
-                      }
-                      alt={collection.name}
-                      className="collection-card__image"
-                    />
-                  ) : (
-                    <div className="collection-card__image" style={{ backgroundColor: '#ddd' }} />
-                  )}
+                  <img
+                    src={collection.cover_image_url || "src/assets/images/cypresses.png"}
+                    alt={collection.name}
+                    className="collection-card__image"
+                    loading="lazy"
+                    onError={(e) => {
+                    e.currentTarget.src = "src/assets/images/cypresses.png";
+                    }}
+                  />
                 </div>
                 <div className="collection-card__body">
                   <h2 className="collection-card__title">
