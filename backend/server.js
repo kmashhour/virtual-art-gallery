@@ -207,6 +207,141 @@ app.post("/api/artworks/:id/comments", (req, res) => {
   }
 });
 
+// =========================
+// ADMIN: COLLECTIES
+// =========================
+
+// GET /api/admin/collections  -> alle collecties
+app.get("/api/admin/collections", (req, res) => {
+  try {
+    const rows = db.prepare(`
+      SELECT id, name, description, category, cover_image_url, is_published, created_at, updated_at
+      FROM collections
+      ORDER BY id DESC
+    `).all();
+    res.json(rows);
+  } catch (err) {
+    console.error("Admin collections GET error:", err.message, err);
+    res.status(500).json({ error: "Kon admin collecties niet ophalen" });
+  }
+});
+
+// POST /api/admin/collections -> nieuwe collectie
+app.post("/api/admin/collections", (req, res) => {
+  try {
+    const { name, description, category, cover_image_url, is_published } = req.body;
+
+    if (!name || !name.trim()) {
+      return res.status(400).json({ error: "Naam is verplicht" });
+    }
+
+    const stmt = db.prepare(`
+      INSERT INTO collections (name, description, category, cover_image_url, is_published, updated_at)
+      VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+    `);
+
+    const result = stmt.run(
+      name.trim(),
+      description ?? "",
+      category ?? "",
+      cover_image_url ?? "",
+      is_published ? 1 : 0
+    );
+
+    const created = db.prepare(`
+      SELECT id, name, description, category, cover_image_url, is_published, created_at, updated_at
+      FROM collections
+      WHERE id = ?
+    `).get(result.lastInsertRowid);
+
+    res.status(201).json(created);
+  } catch (err) {
+    console.error("Admin collections POST error:", err.message, err);
+    res.status(500).json({ error: "Kon collectie niet toevoegen" });
+  }
+});
+
+// PUT /api/admin/collections/:id -> collectie updaten
+app.put("/api/admin/collections/:id", (req, res) => {
+  try {
+    const id = req.params.id;
+    const { name, description, category, cover_image_url } = req.body;
+
+    if (!name || !name.trim()) {
+      return res.status(400).json({ error: "Naam is verplicht" });
+    }
+
+    const stmt = db.prepare(`
+      UPDATE collections
+      SET name = ?,
+          description = ?,
+          category = ?,
+          cover_image_url = ?,
+          updated_at = CURRENT_TIMESTAMP
+      WHERE id = ?
+    `);
+
+    stmt.run(
+      name.trim(),
+      description ?? "",
+      category ?? "",
+      cover_image_url ?? "",
+      id
+    );
+
+    const updated = db.prepare(`
+      SELECT id, name, description, category, cover_image_url, is_published, created_at, updated_at
+      FROM collections
+      WHERE id = ?
+    `).get(id);
+
+    res.json(updated);
+  } catch (err) {
+    console.error("Admin collections PUT error:", err.message, err);
+    res.status(500).json({ error: "Kon collectie niet bijwerken" });
+  }
+});
+
+// PATCH /api/admin/collections/:id/publish -> publish toggle
+app.patch("/api/admin/collections/:id/publish", (req, res) => {
+  try {
+    const id = req.params.id;
+    const { is_published } = req.body; // boolean of 0/1
+
+    const stmt = db.prepare(`
+      UPDATE collections
+      SET is_published = ?,
+          updated_at = CURRENT_TIMESTAMP
+      WHERE id = ?
+    `);
+
+    stmt.run(is_published ? 1 : 0, id);
+
+    const updated = db.prepare(`
+      SELECT id, name, description, category, cover_image_url, is_published, created_at, updated_at
+      FROM collections
+      WHERE id = ?
+    `).get(id);
+
+    res.json(updated);
+  } catch (err) {
+    console.error("Admin publish PATCH error:", err.message, err);
+    res.status(500).json({ error: "Kon publicatiestatus niet wijzigen" });
+  }
+});
+
+// DELETE /api/admin/collections/:id -> verwijderen
+app.delete("/api/admin/collections/:id", (req, res) => {
+  try {
+    const id = req.params.id;
+    db.prepare(`DELETE FROM collections WHERE id = ?`).run(id);
+    res.status(204).end();
+  } catch (err) {
+    console.error("Admin collections DELETE error:", err.message, err);
+    res.status(500).json({ error: "Kon collectie niet verwijderen" });
+  }
+});
+
 const PORT = 5000;
 app.listen(PORT, () => {
   console.log(`Backend API luistert op http://localhost:${PORT}`);
