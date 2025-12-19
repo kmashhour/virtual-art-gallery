@@ -342,6 +342,64 @@ app.delete("/api/admin/collections/:id", (req, res) => {
   }
 });
 
+// GET /api/collections/:id/artworks
+// Leest objectIDs uit DB en haalt details op bij The Met API
+app.get("/api/collections/:id/artworks", async (req, res) => {
+  try {
+    const collectionId = req.params.id;
+
+    const rows = db
+      .prepare(
+        `SELECT met_object_id, sort_order
+         FROM collection_artworks
+         WHERE collection_id = ?
+         ORDER BY COALESCE(sort_order, 999999) ASC, id ASC`
+      )
+      .all(collectionId);
+
+    const ids = rows.map((r) => r.met_object_id);
+
+    if (ids.length === 0) {
+      return res.json([]);
+    }
+
+    // MET details ophalen parallel met een limiet
+    const fetchOne = async (id) => {
+      const url = `https://collectionapi.metmuseum.org/public/collection/v1/objects/${id}`;
+      const r = await fetch(url);
+      if (!r.ok) return null;
+      const data = await r.json();
+
+      // Filter: alleen items met afbeelding 
+      const img = data.primaryImageSmall || data.primaryImage || "";
+      if (!img) return null;
+
+      return {
+        met_object_id: String(data.objectID),
+        title: data.title || `Kunstwerk #${id}`,
+        artist: data.artistDisplayName || "Onbekende kunstenaar",
+        year: data.objectDate || "",
+        image: img,
+      };
+    };
+
+    // Kleine  limiet zoodat  de MET API niet spamt
+    const limit = 6;
+    const results = [];
+    for (let i = 0; i < ids.length; i += limit) {
+      const chunk = ids.slice(i, i + limit);
+      const chunkRes = await Promise.all(chunk.map(fetchOne));
+      results.push(...chunkRes.filter(Boolean));
+    }
+
+    res.json(results);
+  } catch (err) {
+    console.error("Fout bij ophalen collection artworks:", err.message, err);
+    res.status(500).json({ error: "Kon kunstwerken niet ophalen" });
+  }
+});
+
+
 const PORT = 5000;
 app.listen(PORT, () => {
   console.log(`Backend API luistert op http://localhost:${PORT}`);

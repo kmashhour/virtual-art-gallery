@@ -1,84 +1,105 @@
-import { useParams, Link } from "react-router-dom";
 import { useEffect, useState } from "react";
+import { Link, useParams } from "react-router-dom";
+import useFavorites from "../hooks/useFavorites";
 
 const CollectionPage = () => {
   const { id } = useParams();
-  const [collectionName, setCollectionName] = useState("");
-  const [artworkIds, setArtworkIds] = useState([]);
+  const { isFavorite, toggleFavorite } = useFavorites();
+
+  const [artworks, setArtworks] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
   useEffect(() => {
-    const fetchArtworks = async () => {
+    const load = async () => {
       try {
         setLoading(true);
         setError(null);
 
         const res = await fetch(`/api/collections/${id}/artworks`);
-        if (!res.ok) {
-          throw new Error(`Kon artworks voor collectie ${id} niet ophalen`);
-        }
-
+        if (!res.ok) throw new Error("Kon kunstwerken niet ophalen");
         const data = await res.json();
-
-        if (data.collectionName) {
-          setCollectionName(data.collectionName);
-        } else {
-          setCollectionName(`Collectie #${id}`);
-        }
-
-        const metObjectIds = data.metObjectIds || [];
-        setArtworkIds(metObjectIds);
-      } catch (err) {
-        console.error(err);
-        setError(
-          err.message ||
-            "Er ging iets mis bij het ophalen van de artworks voor deze collectie"
-        );
+        setArtworks(data);
+      } catch (e) {
+        console.error(e);
+        setError(e.message || "Er ging iets mis");
       } finally {
         setLoading(false);
       }
     };
 
-    fetchArtworks();
+    load();
   }, [id]);
 
   return (
-    <section className="p-8">
-      <Link to="/collections" className="text-blue-600 underline text-sm">
-        ← Terug naar collecties
-      </Link>
+    <main className="site-main">
+      <section className="page page--collection-detail">
+        <header className="page-header page-header--with-back">
+          <div className="page-header__left">
+            <Link to="/collections" className="back-link">
+              &larr; Terug naar collecties
+            </Link>
+            <h1 className="page-header__title">Collectie #{id}</h1>
+            <p className="page-header__subtitle">
+              Blader door de kunstwerken in deze collectie.
+            </p>
+          </div>
+        </header>
 
-      <h1 className="text-3xl font-bold mb-4 mt-4">
-        {collectionName || `Collectie #${id}`}
-      </h1>
+        {loading && <p>Kunstwerken worden geladen...</p>}
+        {error && <p className="text-red-600">{error}</p>}
 
-      {loading && <p>Artworks worden geladen...</p>}
-      {error && <p className="text-red-600">{error}</p>}
+        {!loading && !error && artworks.length === 0 && (
+          <p>Deze collectie bevat nog geen kunstwerken.</p>
+        )}
 
-      {!loading && !error && (
-        <>
-          {artworkIds.length === 0 ? (
-            <p>Deze collectie bevat nog geen kunstwerken.</p>
-          ) : (
-            <ul className="space-y-2 mt-4">
-              {artworkIds.map((metId) => (
-                <li key={metId}>
-                  <Link
-                    to={`/art/${metId}`}
-                    className="text-blue-600 underline text-sm"
-                  >
-                    Kunstwerk #{metId}
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          )}
-        </>
-      )}
-    </section>
+        {!loading && !error && artworks.length > 0 && (
+          <div className="artworks-grid">
+            {artworks.map((a) => (
+              <article key={a.met_object_id} className="artwork-card">
+                <div className="artwork-card__image-wrapper">
+                  <img
+                    src={a.image}
+                    alt={a.title}
+                    className="artwork-card__image"
+                    loading="lazy"
+                  />
+                </div>
+
+                <div className="artwork-card__body">
+                  <h2 className="artwork-card__title">{a.title}</h2>
+                  <p className="artwork-card__artist">{a.artist}</p>
+                  <p className="artwork-card__year">{a.year}</p>
+
+                  <div className="artwork-card__actions">
+                    <Link
+                      to={`/art/${a.met_object_id}`}
+                      className="button button--ghost"
+                    >
+                      Details
+                    </Link>
+
+                    <button
+                      type="button"
+                      className="button button--icon"
+                      onClick={() => toggleFavorite(a.met_object_id)}
+                    >
+                      <span className="button__icon-heart" aria-hidden="true">
+                        {isFavorite(a.met_object_id) ? "♥" : "♡"}
+                      </span>
+                      <span className="button__text">
+                        {isFavorite(a.met_object_id) ? "Favoriet" : "Favoriet"}
+                      </span>
+                    </button>
+                  </div>
+                </div>
+              </article>
+            ))}
+          </div>
+        )}
+      </section>
+    </main>
   );
 };
 
 export default CollectionPage;
-
