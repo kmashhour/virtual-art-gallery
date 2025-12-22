@@ -62,13 +62,11 @@ const CollectionsPage = () => {
               >
                 <div className="collection-card__image-wrapper">
                   <img
-                    src={collection.cover_image_url || "src/assets/images/cypresses.png"}
+                    src={collection.cover_image_url || "src/assets/images/collection_fallback.png"}
                     alt={collection.name}
                     className="collection-card__image"
                     loading="lazy"
-                    onError={(e) => {
-                    e.currentTarget.src = "src/assets/images/cypresses.png";
-                    }}
+                    onError={(e) => (e.currentTarget.src = "src/assets/images/collection_fallback.png")}
                   />
                 </div>
                 <div className="collection-card__body">
