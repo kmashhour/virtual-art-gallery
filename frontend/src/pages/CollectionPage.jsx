@@ -2,98 +2,64 @@ import { useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import useFavorites from "../hooks/useFavorites";
 
-const FALLBACK_IMG = "src/assets/images/cypresses.png";
+
+const FALLBACK_IMG = "src/assets/images/artwork_fallback.png"; 
 
 const CollectionPage = () => {
   const { id } = useParams();
   const { isFavorite, toggleFavorite } = useFavorites();
 
   const [collectionName, setCollectionName] = useState(`Collectie #${id}`);
-  const [metObjectIds, setMetObjectIds] = useState([]);
-
   const [artworks, setArtworks] = useState([]);
+
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
-  // (optioneel) simpele zoekfilters op de pagina
+  // zoekfilters
   const [qTitle, setQTitle] = useState("");
   const [qArtist, setQArtist] = useState("");
 
-  // 1) haal eerst IDs uit jouw backend
+  // 1) Alles via backend ophalen (die haalt MET details op)
   useEffect(() => {
-    const loadIds = async () => {
+    let cancelled = false;
+
+    const load = async () => {
       try {
         setLoading(true);
         setError(null);
 
         const res = await fetch(`/api/collections/${id}/artworks`);
-        if (!res.ok) throw new Error("Kon collectiegegevens niet ophalen");
+        if (!res.ok) throw new Error("Kon kunstwerken niet ophalen");
 
         const data = await res.json();
+        if (cancelled) return;
 
-        // jouw response-shape:
-        // { collectionId, collectionName, metObjectIds: [...] }
         setCollectionName(data.collectionName || `Collectie #${id}`);
-        setMetObjectIds(Array.isArray(data.metObjectIds) ? data.metObjectIds : []);
+
+        const list = Array.isArray(data.artworks) ? data.artworks : [];
+
+        // Zorg dat image altijd iets heeft (voor het geval backend leeg teruggeeft)
+        const normalized = list.map((a) => ({
+          ...a,
+          met_object_id: String(a.met_object_id),
+          image: a.image || FALLBACK_IMG,
+        }));
+
+        setArtworks(normalized);
       } catch (e) {
         console.error(e);
-        setError(e.message || "Er ging iets mis");
+        if (!cancelled) setError(e.message || "Er ging iets mis");
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     };
 
-    loadIds();
+    load();
+
+    return () => {
+      cancelled = true;
+    };
   }, [id]);
-
-  // 2) haal daarna MET details op basis van IDs
-  useEffect(() => {
-    if (metObjectIds.length === 0) {
-      setArtworks([]);
-      return;
-    }
-
-    const loadDetails = async () => {
-      try {
-        setLoading(true);
-        setError(null);
-
-        const fetchOne = async (objectId) => {
-          const res = await fetch(
-            `https://collectionapi.metmuseum.org/public/collection/v1/objects/${objectId}`
-          );
-          if (!res.ok) return null;
-
-          const a = await res.json();
-          return {
-            met_object_id: String(a.objectID),
-            title: a.title || `Kunstwerk #${objectId}`,
-            artist: a.artistDisplayName || "Onbekende kunstenaar",
-            year: a.objectDate || "",
-            image: a.primaryImageSmall || a.primaryImage || FALLBACK_IMG,
-          };
-        };
-
-        // concurrency limiter (minder stress op MET)
-        const limit = 6;
-        const results = [];
-        for (let i = 0; i < metObjectIds.length; i += limit) {
-          const chunk = metObjectIds.slice(i, i + limit);
-          const chunkRes = await Promise.all(chunk.map(fetchOne));
-          results.push(...chunkRes.filter(Boolean));
-        }
-
-        setArtworks(results);
-      } catch (e) {
-        console.error(e);
-        setError(e.message || "Kon kunstwerken niet ophalen");
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    loadDetails();
-  }, [metObjectIds]);
 
   const filtered = useMemo(() => {
     const t = qTitle.trim().toLowerCase();
@@ -154,11 +120,11 @@ const CollectionPage = () => {
         {loading && <p>Kunstwerken worden geladen...</p>}
         {error && <p className="text-red-600">{error}</p>}
 
-        {!loading && !error && metObjectIds.length === 0 && (
+        {!loading && !error && artworks.length === 0 && (
           <p>Deze collectie bevat nog geen kunstwerken.</p>
         )}
 
-        {!loading && !error && metObjectIds.length > 0 && filtered.length === 0 && (
+        {!loading && !error && artworks.length > 0 && filtered.length === 0 && (
           <p>Geen resultaten voor je zoekopdracht.</p>
         )}
 
@@ -172,7 +138,9 @@ const CollectionPage = () => {
                     alt={a.title}
                     className="artwork-card__image"
                     loading="lazy"
-                    onError={(e) => (e.currentTarget.src = FALLBACK_IMG)}
+                    onError={(e) => {
+                      e.currentTarget.src = FALLBACK_IMG;
+                    }}
                   />
                 </div>
 
@@ -182,7 +150,10 @@ const CollectionPage = () => {
                   <p className="artwork-card__year">{a.year}</p>
 
                   <div className="artwork-card__actions">
-                    <Link to={`/art/${a.met_object_id}`} className="button button--ghost">
+                    <Link
+                      to={`/art/${a.met_object_id}`}
+                      className="button button--ghost"
+                    >
                       Details
                     </Link>
 

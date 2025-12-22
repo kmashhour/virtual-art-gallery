@@ -12,46 +12,83 @@ const dbPath = path.join(__dirname, "data", "gallery.db");
 console.log("Gebruik database:", dbPath);
 const db = new Database(dbPath);
 
-// GET /api/collections?published=true
-app.get("/api/collections", (req, res) => {
+async function fetchMetImageSmall(objectId) {
   try {
-    const { published } = req.query;
+    const res = await fetch(
+      `https://collectionapi.metmuseum.org/public/collection/v1/objects/${objectId}`
+    );
+    if (!res.ok) return "";
+    const data = await res.json();
+    return data.primaryImageSmall || data.primaryImage || "";
+  } catch {
+    return "";
+  }
+}
 
-    let rows;
-    if (published === "true") {
-      // verwacht kolom is_published (0/1) in collections
-      rows = db
-        .prepare(
-          `SELECT id, name, description, category, cover_image_url
-           FROM collections
-           WHERE is_published = 1
-           ORDER BY id`
-        )
-        .all();
-    } else {
-      rows = db
-        .prepare(
-          `SELECT id, name, description, category, cover_image_url
-           FROM collections
-           ORDER BY id`
-        )
-        .all();
+// GET /api/collections?published=true
+app.get("/api/collections", async (req, res) => {
+  try {
+    const published = req.query.published === "true";
+
+    const rows = db
+      .prepare(
+        `
+      SELECT id, name, description, category, cover_image_url, is_published
+      FROM collections
+      ${published ? "WHERE is_published = 1" : ""}
+      ORDER BY id DESC
+    `
+      )
+      .all();
+
+    // Voor elke collectie zonder cover: eerste artwork pakken en cover vullen
+    const getFirstArtwork = db.prepare(`
+      SELECT met_object_id
+      FROM collection_artworks
+      WHERE collection_id = ?
+      ORDER BY COALESCE(sort_order, 999999) ASC, id ASC
+      LIMIT 1
+    `);
+
+    const updateCover = db.prepare(`
+      UPDATE collections
+      SET cover_image_url = ?, updated_at = CURRENT_TIMESTAMP
+      WHERE id = ?
+    `);
+
+    // Let op: async loop (niet te veel tegelijk)
+    for (const c of rows) {
+      if (c.cover_image_url && c.cover_image_url.trim()) continue;
+
+      const first = getFirstArtwork.get(c.id);
+      if (!first?.met_object_id) continue;
+
+      const imgUrl = await fetchMetImageSmall(first.met_object_id);
+      if (imgUrl) {
+        updateCover.run(imgUrl, c.id);
+        c.cover_image_url = imgUrl; // zodat response ook direct goed is
+      }
     }
 
     res.json(rows);
   } catch (err) {
-    console.error("Fout bij ophalen collecties:", err);
+    console.error("Fout bij ophalen collecties:", err.message, err);
     res.status(500).json({ error: "Kon collecties niet ophalen" });
   }
 });
 
 // GET /api/collections/:id/artworks
-app.get("/api/collections/:id/artworks", (req, res) => {
+// -> geeft collectionName + artworks (details) terug via MET API
+app.get("/api/collections/:id/artworks", async (req, res) => {
   try {
     const collectionId = req.params.id;
 
     const collection = db
-      .prepare(`SELECT id, name FROM collections WHERE id = ?`)
+      .prepare(
+        `SELECT id, name
+         FROM collections
+         WHERE id = ?`
+      )
       .get(collectionId);
 
     if (!collection) {
@@ -63,22 +100,58 @@ app.get("/api/collections/:id/artworks", (req, res) => {
         `SELECT met_object_id, sort_order
          FROM collection_artworks
          WHERE collection_id = ?
-         ORDER BY sort_order`
+         ORDER BY COALESCE(sort_order, 999999) ASC, id ASC`
       )
       .all(collectionId);
 
-    const metObjectIds = rows.map((r) => r.met_object_id);
+    const metObjectIds = rows.map((r) => String(r.met_object_id));
+
+    if (metObjectIds.length === 0) {
+      return res.json({
+        collectionId: collection.id,
+        collectionName: collection.name,
+        artworks: [],
+      });
+    }
+
+    const FALLBACK_IMG = "https://www.bcinformatica.nl/a6bg8/artwork_fallback.png";
+
+    const fetchOne = async (objectId) => {
+      const url = `https://collectionapi.metmuseum.org/public/collection/v1/objects/${objectId}`;
+      const r = await fetch(url);
+
+      // 404 -> skip
+      if (r.status === 404) return null;
+      if (!r.ok) return null;
+
+      const a = await r.json();
+
+      return {
+        met_object_id: String(a.objectID),
+        title: a.title || `Kunstwerk #${objectId}`,
+        artist: a.artistDisplayName || "Onbekende kunstenaar",
+        year: a.objectDate || "",
+        image: a.primaryImageSmall || a.primaryImage || FALLBACK_IMG,
+      };
+    };
+
+    // concurrency limit (vriendelijk voor MET)
+    const limit = 6;
+    const results = [];
+    for (let i = 0; i < metObjectIds.length; i += limit) {
+      const chunk = metObjectIds.slice(i, i + limit);
+      const chunkRes = await Promise.all(chunk.map(fetchOne));
+      results.push(...chunkRes.filter(Boolean));
+    }
 
     res.json({
       collectionId: collection.id,
       collectionName: collection.name,
-      metObjectIds,
+      artworks: results,
     });
   } catch (err) {
-    console.error("Fout bij ophalen artworks:", err);
-    res
-      .status(500)
-      .json({ error: "Kon artworks voor deze collectie niet ophalen" });
+    console.error("Fout bij ophalen collectie artworks:", err.message, err);
+    res.status(500).json({ error: "Kon kunstwerken niet ophalen" });
   }
 });
 
