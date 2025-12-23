@@ -14,25 +14,39 @@ import EditArt from './pages/EditArt';
 import FavoritesPage from "./pages/FavoritesPage";
 import ArtPage from './pages/ArtPage';
 import AdminPage from './pages/AdminPage';
+import { AuthProvider } from "./context/AuthContext";
+import RequireAdmin from "./components/RequireAdmin";
+import LoginPage from "./pages/LoginPage";
 
 const router = createBrowserRouter(
   createRoutesFromElements(
     <Route path="/" element={<MainLayout />}>
       <Route index element={<HomePage />} />
+
       <Route path="/collections" element={<CollectionsPage />} />
       <Route path="/collections/:id" element={<CollectionPage />} />
       <Route path="/art/:id" element={<ArtPage />} />
-      <Route path="/admin" element={<AdminPage />} />
-      <Route path="/art/add" element={<AddArt />} />
-      <Route path="/art/:id/edit" element={<EditArt />} />
       <Route path="/favorites" element={<FavoritesPage />} />
+
+      <Route path="/login" element={<LoginPage />} />
+
+      {/* Admin beveiligd */}
+      <Route element={<RequireAdmin />}>
+        <Route path="/admin" element={<AdminPage />} />
+      </Route>
+
       <Route path="*" element={<NotFoundPage />} />
     </Route>
   )
 );
 
+
 const App = () => {
-  return <RouterProvider router={router} />;
+  return (
+    <AuthProvider>
+      <RouterProvider router={router} />
+    </AuthProvider>
+  );
 };
 
 export default App;
