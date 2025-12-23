@@ -2,10 +2,26 @@ const express = require("express");
 const cors = require("cors");
 const path = require("path");
 const Database = require("better-sqlite3");
+const session = require("express-session");
+const bcrypt = require("bcrypt");
+
 
 const app = express();
 app.use(cors());
 app.use(express.json());
+
+app.use(
+  session({
+    secret: "dev-secret-change-me",
+    resave: false,
+    saveUninitialized: false,
+    cookie: {
+      httpOnly: true,
+      sameSite: "lax",
+      secure: false, // in productie true met https
+    },
+  })
+);
 
 // DB-pad: backend/data/gallery.db
 const dbPath = path.join(__dirname, "data", "gallery.db");
@@ -24,6 +40,235 @@ async function fetchMetImageSmall(objectId) {
     return "";
   }
 }
+function requireAdmin(req, res, next) {
+  if (!req.session.user) return res.status(401).json({ error: "Niet ingelogd" });
+  if (!req.session.user.is_admin) return res.status(403).json({ error: "Geen adminrechten" });
+  next();
+}
+// Helper: haal MET object op en zorg dat hij bestaat in met_objects
+async function ensureMetObjectExists(db, metObjectId) {
+  const idStr = String(metObjectId);
+
+  // Bestaat al?
+  const existing = db
+    .prepare(`SELECT ObjectID FROM met_objects WHERE ObjectID = ?`)
+    .get(idStr);
+  if (existing) return true;
+
+  // Haal op bij MET
+  const url = `https://collectionapi.metmuseum.org/public/collection/v1/objects/${idStr}`;
+  const res = await fetch(url);
+
+  // 404 of error -> niet toevoegen
+  if (!res.ok) return false;
+
+  const data = await res.json();
+
+  // Minimale insert. Gebruik kolommen die in jouw met_objects table bestaan.
+  // Als jouw met_objects anders is, roep even je schema erbij en ik pas dit 1:1 aan.
+  // We proberen hier veilig: alleen velden die vaak bestaan.
+  try {
+    // Check welke kolommen er zijn
+    const cols = db.prepare(`PRAGMA table_info(met_objects)`).all();
+    const colNames = new Set(cols.map((c) => c.name));
+
+    const insertParts = [];
+    const values = [];
+
+    // Altijd ObjectID (FK target)
+    if (colNames.has("ObjectID")) {
+      insertParts.push("ObjectID");
+      values.push(String(data.objectID));
+    }
+
+    // Veelvoorkomende MET velden (alleen als kolom bestaat)
+    const maybe = [
+      ["Title", data.title],
+      ["ArtistDisplayName", data.artistDisplayName],
+      ["ObjectDate", data.objectDate],
+      ["Medium", data.medium],
+      ["PrimaryImage", data.primaryImage],
+      ["PrimaryImageSmall", data.primaryImageSmall],
+      ["ObjectURL", data.objectURL],
+      ["Department", data.department],
+      ["Classification", data.classification],
+    ];
+
+    for (const [col, val] of maybe) {
+      if (colNames.has(col)) {
+        insertParts.push(col);
+        values.push(val ?? "");
+      }
+    }
+
+    // Bouw INSERT dynamisch op basis van bestaande kolommen
+    const placeholders = insertParts.map(() => "?").join(", ");
+    const sql = `INSERT OR IGNORE INTO met_objects (${insertParts.join(
+      ", "
+    )}) VALUES (${placeholders})`;
+
+    db.prepare(sql).run(...values);
+    return true;
+  } catch (e) {
+    console.error("ensureMetObjectExists insert error:", e);
+    return false;
+  }
+}
+
+/**
+ * GET /api/admin/collections/:id/artworks
+ * -> lijst met gekoppelde met_object_id's (en sort_order)
+ */
+app.get("/api/admin/collections/:id/artworks", requireAdmin, (req, res) => {
+  try {
+    const collectionId = req.params.id;
+
+    const rows = db
+      .prepare(
+        `
+        SELECT met_object_id, sort_order
+        FROM collection_artworks
+        WHERE collection_id = ?
+        ORDER BY COALESCE(sort_order, 999999) ASC, id ASC
+      `
+      )
+      .all(collectionId);
+
+    res.json(rows);
+  } catch (err) {
+    console.error("Admin list artworks error:", err);
+    res.status(500).json({ error: "Kon collectie-artworks niet ophalen" });
+  }
+});
+
+/**
+ * POST /api/admin/collections/:id/artworks
+ * body: { met_object_id, sort_order? }
+ * -> koppelt MET object aan collectie
+ */
+app.post("/api/admin/collections/:id/artworks", requireAdmin, async (req, res) => {
+  try {
+    const collectionId = req.params.id;
+    const { met_object_id, sort_order } = req.body || {};
+
+    const metId = String(met_object_id || "").trim();
+    if (!metId) {
+      return res.status(400).json({ error: "met_object_id is verplicht" });
+    }
+
+    // check collectie bestaat
+    const col = db
+      .prepare(`SELECT id FROM collections WHERE id = ?`)
+      .get(collectionId);
+    if (!col) return res.status(404).json({ error: "Collectie niet gevonden" });
+
+    // Zorg dat met_objects record bestaat (voor FK)
+    const ok = await ensureMetObjectExists(db, metId);
+    if (!ok) {
+      return res
+        .status(400)
+        .json({ error: "MET object niet gevonden of kan niet worden opgeslagen" });
+    }
+
+    // Insert link
+    const stmt = db.prepare(
+      `
+      INSERT OR IGNORE INTO collection_artworks (collection_id, met_object_id, sort_order)
+      VALUES (?, ?, ?)
+    `
+    );
+
+    stmt.run(collectionId, metId, sort_order ?? null);
+
+    res.status(201).json({ ok: true });
+  } catch (err) {
+    console.error("Admin add artwork error:", err);
+    // UNIQUE / FK errors netjes teruggeven
+    const msg = String(err?.message || "");
+    if (msg.includes("UNIQUE")) {
+      return res.status(409).json({ error: "Deze MET ID zit al in de collectie" });
+    }
+    if (msg.includes("FOREIGN KEY")) {
+      return res.status(400).json({ error: "FK faalt: met_object_id bestaat niet in met_objects" });
+    }
+    res.status(500).json({ error: "Toevoegen mislukt" });
+  }
+});
+
+/**
+ * DELETE /api/admin/collections/:id/artworks/:met_object_id
+ * -> verwijdert koppeling
+ */
+app.delete(
+  "/api/admin/collections/:id/artworks/:met_object_id",
+  requireAdmin,
+  (req, res) => {
+    try {
+      const collectionId = req.params.id;
+      const metId = String(req.params.met_object_id || "").trim();
+
+      const stmt = db.prepare(
+        `
+        DELETE FROM collection_artworks
+        WHERE collection_id = ? AND met_object_id = ?
+      `
+      );
+
+      const info = stmt.run(collectionId, metId);
+      if (info.changes === 0) {
+        return res.status(404).json({ error: "Koppeling niet gevonden" });
+      }
+
+      res.status(204).end();
+    } catch (err) {
+      console.error("Admin delete artwork error:", err);
+      res.status(500).json({ error: "Verwijderen mislukt" });
+    }
+  }
+);
+
+// AUTH: login
+app.post("/api/auth/login", async (req, res) => {
+  try {
+    const { username, password } = req.body || {};
+    if (!username || !password) {
+      return res.status(400).json({ error: "Username en password zijn verplicht" });
+    }
+
+    const user = db
+      .prepare(`SELECT id, username, email, password_hash, is_admin FROM users WHERE username = ?`)
+      .get(username);
+
+    if (!user) return res.status(401).json({ error: "Ongeldige inloggegevens" });
+
+    const ok = await bcrypt.compare(password, user.password_hash);
+    if (!ok) return res.status(401).json({ error: "Ongeldige inloggegevens" });
+
+    req.session.user = {
+      id: user.id,
+      username: user.username,
+      email: user.email,
+      is_admin: user.is_admin,
+    };
+
+    res.json({ id: user.id, username: user.username, email: user.email, is_admin: user.is_admin });
+  } catch (err) {
+    console.error("Login error:", err);
+    res.status(500).json({ error: "Login mislukt" });
+  }
+});
+
+// AUTH: current user
+app.get("/api/auth/me", (req, res) => {
+  res.json(req.session.user || null);
+});
+
+// AUTH: logout
+app.post("/api/auth/logout", (req, res) => {
+  req.session.destroy(() => {
+    res.status(204).end();
+  });
+});
 
 // GET /api/collections?published=true
 app.get("/api/collections", async (req, res) => {
@@ -285,7 +530,7 @@ app.post("/api/artworks/:id/comments", (req, res) => {
 // =========================
 
 // GET /api/admin/collections  -> alle collecties
-app.get("/api/admin/collections", (req, res) => {
+app.get("/api/admin/collections", requireAdmin, (req, res) => {
   try {
     const rows = db.prepare(`
       SELECT id, name, description, category, cover_image_url, is_published, created_at, updated_at
@@ -300,7 +545,7 @@ app.get("/api/admin/collections", (req, res) => {
 });
 
 // POST /api/admin/collections -> nieuwe collectie
-app.post("/api/admin/collections", (req, res) => {
+app.post("/api/admin/collections", requireAdmin, (req, res) => {
   try {
     const { name, description, category, cover_image_url, is_published } = req.body;
 
