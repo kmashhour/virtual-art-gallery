@@ -114,6 +114,32 @@ async function ensureMetObjectExists(db, metObjectId) {
     return false;
   }
 }
+async function getFirstArtworkImageForCollection(db, collectionId) {
+  // pak eerste met_object_id uit collection_artworks
+  const row = db
+    .prepare(
+      `
+      SELECT met_object_id
+      FROM collection_artworks
+      WHERE collection_id = ?
+      ORDER BY COALESCE(sort_order, 999999) ASC, id ASC
+      LIMIT 1
+    `
+    )
+    .get(collectionId);
+
+  if (!row) return null;
+
+  const objectId = String(row.met_object_id);
+
+  // haal details uit MET
+  const url = `https://collectionapi.metmuseum.org/public/collection/v1/objects/${objectId}`;
+  const res = await fetch(url);
+  if (!res.ok) return null;
+
+  const data = await res.json();
+  return data.primaryImageSmall || data.primaryImage || null;
+}
 
 /**
  * GET /api/admin/collections/:id/artworks
@@ -271,56 +297,55 @@ app.post("/api/auth/logout", (req, res) => {
 });
 
 // GET /api/collections?published=true
+// PUBLIC: collections list
+// GET /api/collections?published=true
 app.get("/api/collections", async (req, res) => {
   try {
-    const published = req.query.published === "true";
+    const onlyPublished = String(req.query.published || "") === "true";
 
-    const rows = db
-      .prepare(
-        `
-      SELECT id, name, description, category, cover_image_url, is_published
-      FROM collections
-      ${published ? "WHERE is_published = 1" : ""}
-      ORDER BY id DESC
-    `
-      )
-      .all();
+    const rows = onlyPublished
+      ? db
+          .prepare(
+            `
+            SELECT id, name, description, category, cover_image_url, is_published
+            FROM collections
+            WHERE is_published = 1
+            ORDER BY id DESC
+          `
+          )
+          .all()
+      : db
+          .prepare(
+            `
+            SELECT id, name, description, category, cover_image_url, is_published
+            FROM collections
+            ORDER BY id DESC
+          `
+          )
+          .all();
 
-    // Voor elke collectie zonder cover: eerste artwork pakken en cover vullen
-    const getFirstArtwork = db.prepare(`
-      SELECT met_object_id
-      FROM collection_artworks
-      WHERE collection_id = ?
-      ORDER BY COALESCE(sort_order, 999999) ASC, id ASC
-      LIMIT 1
-    `);
-
-    const updateCover = db.prepare(`
-      UPDATE collections
-      SET cover_image_url = ?, updated_at = CURRENT_TIMESTAMP
-      WHERE id = ?
-    `);
-
-    // Let op: async loop (niet te veel tegelijk)
+    // vul cover_image_url als hij leeg is
+    const result = [];
     for (const c of rows) {
-      if (c.cover_image_url && c.cover_image_url.trim()) continue;
+      let cover = c.cover_image_url;
 
-      const first = getFirstArtwork.get(c.id);
-      if (!first?.met_object_id) continue;
-
-      const imgUrl = await fetchMetImageSmall(first.met_object_id);
-      if (imgUrl) {
-        updateCover.run(imgUrl, c.id);
-        c.cover_image_url = imgUrl; // zodat response ook direct goed is
+      if (!cover || String(cover).trim() === "") {
+        cover = await getFirstArtworkImageForCollection(db, c.id);
       }
+
+      result.push({
+        ...c,
+        cover_image_url: cover || null,
+      });
     }
 
-    res.json(rows);
+    res.json(result);
   } catch (err) {
-    console.error("Fout bij ophalen collecties:", err.message, err);
+    console.error("Public collections error:", err);
     res.status(500).json({ error: "Kon collecties niet ophalen" });
   }
 });
+
 
 // GET /api/collections/:id/artworks
 // -> geeft collectionName + artworks (details) terug via MET API
@@ -397,6 +422,29 @@ app.get("/api/collections/:id/artworks", async (req, res) => {
   } catch (err) {
     console.error("Fout bij ophalen collectie artworks:", err.message, err);
     res.status(500).json({ error: "Kon kunstwerken niet ophalen" });
+  }
+});
+// PUBLIC: single collection (only if published)
+app.get("/api/collections/:id", (req, res) => {
+  try {
+    const id = req.params.id;
+
+    const c = db
+      .prepare(
+        `
+        SELECT id, name, description, category, cover_image_url, is_published
+        FROM collections
+        WHERE id = ? AND is_published = 1
+      `
+      )
+      .get(id);
+
+    if (!c) return res.status(404).json({ error: "Collectie niet gevonden" });
+
+    res.json(c);
+  } catch (err) {
+    console.error("Public collection by id error:", err);
+    res.status(500).json({ error: "Kon collectie niet ophalen" });
   }
 });
 
